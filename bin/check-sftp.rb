@@ -90,6 +90,13 @@ class CheckSftp < Sensu::Plugin::Check::CLI
          proc: proc(&:to_i),
          description: 'Alert if files > COUNT in directory'
 
+  option :check_exists,
+         short: '-e',
+         long: '--exists',
+         boolean: true,
+         default: false,
+         description: 'Alert if files matched does not exist'
+
   option :check_older,
          short: '-o OLDER_THAN',
          long: '--older_than OLDER_THAN',
@@ -101,11 +108,10 @@ class CheckSftp < Sensu::Plugin::Check::CLI
       check_file_write
       check_file_count
       check_file_age
+      check_exists
     end
 
     ok
-  rescue Timeout::Error
-    critical "Timed out after #{config[:timeout]}s"
   rescue SocketError => e
     critical "Could not connect: #{e.inspect}"
   rescue Net::SSH::AuthenticationFailed
@@ -139,6 +145,14 @@ class CheckSftp < Sensu::Plugin::Check::CLI
       old_files = matching_files.select { |f| (run_at.to_i - f.attributes.mtime) > config[:check_older] }
       unless old_files.empty?
         critical "Files too old - #{config[:directory]} has #{old_files.count} matching files older than #{config[:check_older]}s"
+      end
+    end
+  end
+
+  def check_exists
+    if config[:check_exists]
+      if matching_files.empty?
+        critical "No files matched"
       end
     end
   end
